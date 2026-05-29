@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo List App</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; }
+  .app { width: 100%; max-width: 600px; }
+  h1 { text-align: center; color: #e0e0ff; font-size: 28px; margin-bottom: 24px; letter-spacing: 1px; }
+  .add-bar { display: flex; gap: 10px; margin-bottom: 28px; }
+  .add-bar input { flex: 1; padding: 12px 16px; border: 2px solid #3a3a5c; border-radius: 10px; background: #16213e; color: #e0e0ff; font-size: 15px; outline: none; transition: border-color 0.2s; }
+  .add-bar input:focus { border-color: #7c6aff; }
+  .add-bar input::placeholder { color: #6e6e9e; }
+  .add-bar button { padding: 12px 22px; background: #7c6aff; border: none; border-radius: 10px; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+  .add-bar button:hover { background: #6455e0; }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .filters button { padding: 6px 18px; border-radius: 20px; border: 1.5px solid #3a3a5c; background: transparent; color: #a0a0cc; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .filters button.active, .filters button:hover { background: #7c6aff; color: #fff; border-color: #7c6aff; }
+
+  .stats { display: flex; gap: 16px; margin-bottom: 20px; font-size: 13px; color: #6e6e9e; }
+  .stats span strong { color: #a0a0cc; }
+
+  .todo-item { background: #16213e; border: 1.5px solid #2a2a4a; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; transition: opacity 0.2s, transform 0.2s; }
+  .todo-item.completed { opacity: 0.5; }
+  .todo-item.completed .todo-text { text-decoration: line-through; color: #6e6e9e; }
+
+  .check-btn { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #3a3a5c; background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .check-btn:hover { border-color: #4ade80; }
+  .todo-item.completed .check-btn { background: #4ade80; border-color: #4ade80; }
+  .check-btn svg { display: none; }
+  .todo-item.completed .check-btn svg { display: block; }
+
+  .todo-text { flex: 1; color: #d0d0f0; font-size: 15px; word-break: break-word; }
+
+  .edit-input { flex: 1; padding: 4px 8px; background: #0f3460; border: 1.5px solid #7c6aff; border-radius: 6px; color: #e0e0ff; font-size: 15px; outline: none; }
+
+  .actions { display: flex; gap: 8px; }
+  .actions button { padding: 5px 12px; border-radius: 7px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .edit-btn { background: #1e3a5f; color: #60a5fa; }
+  .edit-btn:hover { background: #2d4f7c; }
+  .save-btn { background: #1a4731; color: #4ade80; }
+  .save-btn:hover { background: #22543d; }
+  .del-btn { background: #3b1f1f; color: #f87171; }
+  .del-btn:hover { background: #522828; }
+
+  .empty { text-align: center; color: #6e6e9e; padding: 40px 0; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>✅ Todo List</h1>
+  <div class="add-bar">
+    <input type="text" id="newTask" placeholder="What needs to be done?" onkeydown="if(event.key==='Enter')addTodo()">
+    <button onclick="addTodo()">+ Add</button>
+  </div>
+  <div class="filters">
+    <button class="active" onclick="setFilter('all',this)">All</button>
+    <button onclick="setFilter('active',this)">Active</button>
+    <button onclick="setFilter('completed',this)">Completed</button>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div id="todoList"></div>
+</div>
+
+<script>
+// All data lives in this array — no database, no localStorage
+let todos = [
+  { id: 1, text: 'Learn PHP fundamentals', completed: true },
+  { id: 2, text: 'Build a CRUD application', completed: false },
+  { id: 3, text: 'Practice AJAX calls', completed: false }
+];
+let nextId = 4;
+let currentFilter = 'all';
+
+function addTodo() {
+  const input = document.getElementById('newTask');
+  const text = input.value.trim();
+  if (!text) { input.focus(); return; }
+  todos.push({ id: nextId++, text, completed: false });
+  input.value = '';
+  render();
+}
+
+function deleteTodo(id) {
+  todos = todos.filter(t => t.id !== id);
+  render();
+}
+
+function toggleComplete(id) {
+  const todo = todos.find(t => t.id === id);
+  if (todo) todo.completed = !todo.completed;
+  render();
+}
+
+function startEdit(id) {
+  render(id); // re-render with edit mode for this id
+}
+
+function saveEdit(id) {
+  const input = document.getElementById('edit_' + id);
+  const text = input.value.trim();
+  if (!text) return;
+  const todo = todos.find(t => t.id === id);
+  if (todo) todo.text = text;
+  render();
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function getFiltered() {
+  if (currentFilter === 'active') return todos.filter(t => !t.completed);
+  if (currentFilter === 'completed') return todos.filter(t => t.completed);
+  return todos;
+}
+
+function render(editingId = null) {
+  const filtered = getFiltered();
+  const total = todos.length;
+  const done = todos.filter(t => t.completed).length;
+  document.getElementById('stats').innerHTML =
+    `<span>Total: <strong>${total}</strong></span>
+     <span>Done: <strong>${done}</strong></span>
+     <span>Remaining: <strong>${total - done}</strong></span>`;
+
+  const list = document.getElementById('todoList');
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">No tasks here 🎉</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(todo => {
+    const isEditing = (editingId === todo.id);
+    return `
+    <div class="todo-item ${todo.completed ? 'completed' : ''}">
+      <button class="check-btn" onclick="toggleComplete(${todo.id})" title="Toggle complete">
+        <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+          <path d="M1 5L4.5 8.5L11 1" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      ${isEditing
+        ? `<input class="edit-input" id="edit_${todo.id}" value="${todo.text.replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')saveEdit(${todo.id})">`
+        : `<span class="todo-text">${todo.text}</span>`
+      }
+      <div class="actions">
+        ${isEditing
+          ? `<button class="save-btn" onclick="saveEdit(${todo.id})">Save</button>`
+          : `<button class="edit-btn" onclick="startEdit(${todo.id})">Edit</button>`
+        }
+        <button class="del-btn" onclick="deleteTodo(${todo.id})">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (editingId) {
+    const el = document.getElementById('edit_' + editingId);
+    if (el) { el.focus(); el.select(); }
+  }
+}
+
+render();
+</script>
+</body>
+</html>
